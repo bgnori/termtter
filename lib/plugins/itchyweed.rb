@@ -110,10 +110,8 @@ module ItchyWeed
       :name => :tshow,
       :help => ['tshow ', 'show marked tweets for tumblr chat(conversation) post'],
       :exec => lambda {|arg|
-      for tw in marked.values
-        p format_a_tweet(tw)
-      end
-    }
+        marked.sort_by {|k, v| k }.map {|k, v| p ItchyWeed.format_a_tweet(v)}
+      }
     )
     register_command(
       :name => :tunmark,

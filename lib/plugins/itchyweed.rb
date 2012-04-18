@@ -10,6 +10,7 @@
 #
 #
 
+require 'uri'
 require 'oauth'
 require 'tumblife' 
 
@@ -19,14 +20,16 @@ module ItchyWeed
   OAUTH_CONSUMER_KEY = 'n4JPEf6xvuRRaq1intRhtv44wCss3vBkEeBIIcrNbylcDhkzxS'
   OAUTH_SECRET_KEY = 'VU74CFGESeSdqxpR85WCHEqfAY5yxXBeT7kwr5RPebolEJ4WXG'
   TOKEN_FILE_PATH = "~/.termtter/tumblrtoken"
-  
+
   def format_a_tweet(tw)
     "%s(@%s): %s (id: %s) \n"% [tw[:user][:name], tw[:user][:screen_name], tw[:text], tw[:id]]
   end
+  module_function :format_a_tweet
   
   def format_conv(tweets)
     tweets.sort_by {|k, v| k }.map {|k, v| format_a_tweet(v) }.join ''
   end
+  module_function :format_conv
   
   def myinit(purge)
     access_token_token = ''
@@ -34,7 +37,7 @@ module ItchyWeed
 
     if not purge and File.exist?(File.expand_path(TOKEN_FILE_PATH))
       p 'reading token from file.'
-      $base_hostname, access_token_token, access_token_secret = File.read(File.expand_path(TOKEN_FILE_PATH)) \
+      access_token_token, access_token_secret = File.read(File.expand_path(TOKEN_FILE_PATH)) \
                                                                   .split(/\r?\n/).map(&:chomp)
     else
       p 'getting toke from site.'
@@ -47,7 +50,6 @@ module ItchyWeed
       # POST https://www.tumblr.com/oauth/access_token 
     
       ui = create_highline
-      $base_hostname = ui.ask('tumblr blog url, without http:// i.e. "bgnori.tumblr.com" etc.: ')
       username = ui.ask('tumblr user name(email): ')
       password = ui.ask('tumblr password: '){ |q| q.echo = false }
   
@@ -61,7 +63,6 @@ module ItchyWeed
           })
   
       open(File.expand_path(TOKEN_FILE_PATH),"w") do |f|
-        f.puts $base_hostname
         f.puts access_token.token
         f.puts access_token.secret
       end
@@ -76,23 +77,24 @@ module ItchyWeed
     end
     return Tumblife.client
   end
+  module_function :myinit
 
   module Termtter::Client
     marked = {}
+    tclient = nil
+    defaule_host_basename = ''
+    info_user = nil
+    uri = nil
+    
+
     register_command(
       :name => :tinit,
       :help => ['tinit', 'authorize client'],
       :exec => lambda {|arg|
-        p arg
-        $tclient = myinit(arg.strip != '')
-      }
-    )
-    register_command(
-      :name => :tstat,
-      :help => ['tstat', 'show client status'],
-      :exec => lambda {|arg|
+        tclient = ItchyWeed::myinit(arg.strip != '')
         p 'cleint is ready for'
-        p $tclient.info_user
+        info_user =  tclient.info_user
+        uri = URI(info_user[:user][:blogs][0][:url])
       }
     )
     register_command(
@@ -124,17 +126,17 @@ module ItchyWeed
       :name => :tpost,
       :help => ['tpost', 'post tweets to tumblr as chat(conversation) post'],
       :exec => lambda {|arg|
-        p 'tpost posting ...'
-        $tclient.create_post($base_hostname,
+        p 'tpost posting to ', 
+        tclient.create_post(uri.host,
           params={
             :type => 'chat',
             :tags => 'itchy weed, termtter, twitter',
-            :conversation =>('%s'%format_conv(marked)),
+            :conversation =>('%s'%ItchyWeed::format_conv(marked)),
           }
         )
         marked = {}
       }
     )
   end
-  
- end 
+end 
+
